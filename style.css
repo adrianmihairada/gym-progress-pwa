@@ -262,6 +262,23 @@ select:focus {
   border-color: var(--accent);
 }
 
+.workout-list-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.workout-delete-button {
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--danger);
+  font-weight: 700;
+}
+
 .workout-date,
 .workout-stats,
 .set-workout {
@@ -313,6 +330,11 @@ select:focus {
   margin-bottom: 14px;
 }
 
+.workout-detail-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .section-title-row h2,
 .workout-detail-header h2 {
   margin: 0;
@@ -326,9 +348,20 @@ select:focus {
 
 .sub-panel h2,
 .sub-panel h3,
+.sub-panel h4,
 .workout-sets-section h3 {
   margin: 0 0 12px;
   font-size: 1rem;
+}
+
+#add-exercise-set-button {
+  width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.progression-list {
+  margin-top: 12px;
 }
 
 .workout-detail-header p {
@@ -379,6 +412,12 @@ select:focus {
   .section-title-row,
   .workout-detail-header {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workout-detail-actions,
+  .workout-list-item {
+    grid-template-columns: 1fr;
     flex-direction: column;
   }
 

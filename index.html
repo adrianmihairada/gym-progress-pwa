@@ -110,7 +110,10 @@
             <p id="workout-detail-meta"></p>
             <p id="workout-detail-notes" class="set-notes"></p>
           </div>
-          <button id="close-workout-detail" type="button" class="secondary-button">Volver</button>
+          <div class="workout-detail-actions">
+            <button id="close-workout-detail" type="button" class="secondary-button">Volver</button>
+            <button id="delete-workout-detail" type="button" class="workout-delete-button">Borrar</button>
+          </div>
         </div>
 
         <div class="sub-panel">
@@ -160,6 +163,36 @@
           </div>
           <button id="close-exercise" type="button" class="ghost-button">Volver</button>
         </div>
+
+        <button id="add-exercise-set-button" type="button" class="primary-button"></button>
+
+        <div id="exercise-set-panel" class="sub-panel" hidden>
+          <h4>Nueva serie</h4>
+          <form id="exercise-set-form" class="workout-form">
+            <input id="exercise-set-exercise" name="exercise" type="hidden">
+
+            <div class="field-row">
+              <div>
+                <label for="exercise-set-weight">Peso en kg</label>
+                <input id="exercise-set-weight" name="weight" type="number" min="0" step="0.5" placeholder="60" required>
+              </div>
+
+              <div>
+                <label for="exercise-set-reps">Repeticiones</label>
+                <input id="exercise-set-reps" name="reps" type="number" min="1" step="1" placeholder="8" required>
+              </div>
+            </div>
+
+            <label for="exercise-set-notes">Notas opcionales</label>
+            <textarea id="exercise-set-notes" name="notes" rows="3" placeholder="RIR, tecnica, descanso..."></textarea>
+
+            <label for="exercise-set-workout">Entrenamiento</label>
+            <select id="exercise-set-workout" name="workoutId"></select>
+
+            <button type="submit" class="primary-button">Guardar serie</button>
+          </form>
+        </div>
+
         <ul id="exercise-set-list" class="history-list progression-list" aria-live="polite"></ul>
       </div>
     </section>

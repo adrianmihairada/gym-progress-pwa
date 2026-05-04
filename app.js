@@ -15,6 +15,12 @@ const exerciseDetailTitle = document.querySelector('#exercise-detail-title');
 const exerciseDetailCount = document.querySelector('#exercise-detail-count');
 const exerciseSetList = document.querySelector('#exercise-set-list');
 const closeExerciseButton = document.querySelector('#close-exercise');
+const addExerciseSetButton = document.querySelector('#add-exercise-set-button');
+const exerciseSetPanel = document.querySelector('#exercise-set-panel');
+const exerciseSetForm = document.querySelector('#exercise-set-form');
+const exerciseSetExerciseInput = document.querySelector('#exercise-set-exercise');
+const exerciseSetWeightInput = document.querySelector('#exercise-set-weight');
+const exerciseSetWorkoutSelect = document.querySelector('#exercise-set-workout');
 const workoutsListScreen = document.querySelector('#workouts-list-screen');
 const workoutsList = document.querySelector('#workouts-list');
 const workoutsEmptyState = document.querySelector('#workouts-empty-state');
@@ -31,6 +37,7 @@ const workoutDetailTitle = document.querySelector('#workout-detail-title');
 const workoutDetailMeta = document.querySelector('#workout-detail-meta');
 const workoutDetailNotes = document.querySelector('#workout-detail-notes');
 const closeWorkoutDetailButton = document.querySelector('#close-workout-detail');
+const deleteWorkoutDetailButton = document.querySelector('#delete-workout-detail');
 const workoutSetForm = document.querySelector('#workout-set-form');
 const workoutSetExerciseInput = document.querySelector('#workout-set-exercise');
 const workoutSetList = document.querySelector('#workout-set-list');
@@ -41,6 +48,7 @@ let workouts = loadWorkouts();
 let selectedExercise = '';
 let selectedWorkoutId = '';
 let isNewWorkoutOpen = false;
+let isExerciseSetFormOpen = false;
 
 renderAll();
 registerServiceWorker();
@@ -90,6 +98,7 @@ clearHistoryButton.addEventListener('click', () => {
 
   sets = [];
   selectedExercise = '';
+  isExerciseSetFormOpen = false;
   saveSets();
   renderAll();
 });
@@ -101,13 +110,42 @@ exerciseList.addEventListener('click', (event) => {
     return;
   }
 
+  if (getExerciseKey(selectedExercise) !== getExerciseKey(exerciseButton.dataset.exerciseName)) {
+    isExerciseSetFormOpen = false;
+  }
+
   selectedExercise = exerciseButton.dataset.exerciseName;
   renderExercises();
 });
 
 closeExerciseButton.addEventListener('click', () => {
   selectedExercise = '';
+  isExerciseSetFormOpen = false;
   renderExercises();
+});
+
+addExerciseSetButton.addEventListener('click', () => {
+  isExerciseSetFormOpen = true;
+  renderExercises();
+  exerciseSetWeightInput.focus();
+});
+
+exerciseSetForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  const workoutId = exerciseSetWorkoutSelect.value;
+  const workout = workoutId ? getWorkoutById(workoutId) : null;
+  const setData = getSetDataFromForm(exerciseSetForm);
+
+  if ((workoutId && !workout) || !setData) {
+    return;
+  }
+
+  sets.unshift(createSet(setData, workout));
+  saveSets();
+  exerciseSetForm.reset();
+  renderAll();
+  exerciseSetWeightInput.focus();
 });
 
 newWorkoutButton.addEventListener('click', () => {
@@ -162,6 +200,13 @@ newWorkoutForm.addEventListener('submit', (event) => {
 });
 
 workoutsList.addEventListener('click', (event) => {
+  const deleteWorkoutButton = event.target.closest('[data-delete-workout-id]');
+
+  if (deleteWorkoutButton) {
+    deleteWorkout(deleteWorkoutButton.dataset.deleteWorkoutId);
+    return;
+  }
+
   const workoutButton = event.target.closest('[data-workout-id]');
 
   if (!workoutButton) {
@@ -176,6 +221,10 @@ workoutsList.addEventListener('click', (event) => {
 closeWorkoutDetailButton.addEventListener('click', () => {
   selectedWorkoutId = '';
   renderWorkouts();
+});
+
+deleteWorkoutDetailButton.addEventListener('click', () => {
+  deleteWorkout(selectedWorkoutId);
 });
 
 workoutSetForm.addEventListener('submit', (event) => {
@@ -375,7 +424,9 @@ function renderExercises() {
 
   if (!selectedGroup) {
     selectedExercise = '';
+    isExerciseSetFormOpen = false;
     exerciseDetail.hidden = true;
+    exerciseSetForm.reset();
     exerciseSetList.innerHTML = '';
     return;
   }
@@ -387,6 +438,10 @@ function renderExerciseDetail(group) {
   exerciseDetail.hidden = false;
   exerciseDetailTitle.textContent = group.name;
   exerciseDetailCount.textContent = getSeriesCountLabel(group.sets.length);
+  addExerciseSetButton.textContent = `+ A\u00f1adir serie a ${group.name}`;
+  exerciseSetPanel.hidden = !isExerciseSetFormOpen;
+  exerciseSetExerciseInput.value = group.name;
+  renderExerciseWorkoutOptions();
   exerciseSetList.innerHTML = '';
 
   group.sets
@@ -414,6 +469,30 @@ function renderExerciseDetail(group) {
 
       exerciseSetList.appendChild(item);
     });
+}
+
+function renderExerciseWorkoutOptions() {
+  const currentValue = exerciseSetWorkoutSelect.value;
+
+  exerciseSetWorkoutSelect.innerHTML = '';
+
+  const looseOption = document.createElement('option');
+  looseOption.value = '';
+  looseOption.textContent = 'Serie suelta';
+  exerciseSetWorkoutSelect.appendChild(looseOption);
+
+  getWorkoutsByDate('desc').forEach((workout) => {
+    const option = document.createElement('option');
+
+    option.value = workout.id;
+    option.textContent = `${formatDateOnly(workout.date)} - ${getWorkoutRoutineLabel(workout)}`;
+    exerciseSetWorkoutSelect.appendChild(option);
+  });
+
+  const hasCurrentValue = Array.from(exerciseSetWorkoutSelect.options)
+    .some((option) => option.value === currentValue);
+
+  exerciseSetWorkoutSelect.value = hasCurrentValue ? currentValue : '';
 }
 
 function renderWorkouts() {
@@ -445,10 +524,13 @@ function renderWorkouts() {
   getWorkoutsByDate('desc').forEach((workout) => {
     const item = document.createElement('li');
     const button = document.createElement('button');
+    const deleteButton = document.createElement('button');
     const title = document.createElement('span');
     const date = document.createElement('span');
     const stats = document.createElement('span');
     const workoutStats = getWorkoutStats(workout.id);
+
+    item.className = 'workout-list-item';
 
     button.type = 'button';
     button.className = 'workout-card';
@@ -463,8 +545,13 @@ function renderWorkouts() {
     stats.className = 'workout-stats';
     stats.textContent = `${getSeriesShortLabel(workoutStats.sets)} - ${getExercisesShortLabel(workoutStats.exercises)}`;
 
+    deleteButton.type = 'button';
+    deleteButton.className = 'workout-delete-button';
+    deleteButton.dataset.deleteWorkoutId = workout.id;
+    deleteButton.textContent = 'Borrar';
+
     button.append(date, title, stats);
-    item.appendChild(button);
+    item.append(button, deleteButton);
     workoutsList.appendChild(item);
   });
 }
@@ -600,6 +687,71 @@ function deleteSet(id) {
   renderAll();
 }
 
+function deleteWorkout(workoutId) {
+  const workout = getWorkoutById(workoutId);
+
+  if (!workout) {
+    return;
+  }
+
+  const confirmed = confirm('\u00bfSeguro que quieres borrar este entrenamiento?');
+
+  if (!confirmed) {
+    return;
+  }
+
+  const choice = prompt(
+    '\u00bfQu\u00e9 quieres hacer con las series asociadas?\n\n' +
+    'A - Borrar entrenamiento y sus series\n' +
+    'B - Borrar solo el entrenamiento y dejar las series como sueltas\n' +
+    'C - Cancelar\n\n' +
+    'Escribe A, B o C:'
+  );
+  const normalizedChoice = String(choice || '').trim().toLocaleUpperCase('es-ES');
+
+  if (!normalizedChoice || normalizedChoice === 'C') {
+    return;
+  }
+
+  if (normalizedChoice !== 'A' && normalizedChoice !== 'B') {
+    alert('Opci\u00f3n no v\u00e1lida. No se ha borrado el entrenamiento.');
+    return;
+  }
+
+  workouts = workouts.filter((item) => item.id !== workoutId);
+
+  if (normalizedChoice === 'A') {
+    sets = sets.filter((set) => set.workoutId !== workoutId);
+  }
+
+  if (normalizedChoice === 'B') {
+    sets = sets.map((set) => {
+      if (set.workoutId !== workoutId) {
+        return set;
+      }
+
+      const looseSet = { ...set };
+
+      delete looseSet.workoutId;
+      delete looseSet.workoutDate;
+      delete looseSet.workoutType;
+      delete looseSet.workoutRoutineName;
+
+      return looseSet;
+    });
+  }
+
+  if (selectedWorkoutId === workoutId) {
+    selectedWorkoutId = '';
+    workoutSetForm.reset();
+  }
+
+  isNewWorkoutOpen = false;
+  saveWorkouts();
+  saveSets();
+  renderAll();
+}
+
 function getExerciseGroups() {
   const groups = new Map();
 
@@ -678,7 +830,11 @@ function getWorkoutsByDate(order) {
 }
 
 function getSelectedWorkout() {
-  return workouts.find((workout) => workout.id === selectedWorkoutId);
+  return getWorkoutById(selectedWorkoutId);
+}
+
+function getWorkoutById(workoutId) {
+  return workouts.find((workout) => workout.id === workoutId);
 }
 
 function findWorkoutByDateAndRoutine(date, routineName) {
