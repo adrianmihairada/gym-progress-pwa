@@ -7,6 +7,7 @@
   <title>GymProgress</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -169,6 +170,34 @@
           <h4 id="exercise-stats-title">Estadísticas</h4>
           <p id="exercise-stats-empty" class="empty-state" hidden></p>
           <div id="exercise-stats-grid" class="stats-grid" aria-live="polite"></div>
+        </section>
+
+        <section id="exercise-charts" class="exercise-charts" aria-labelledby="exercise-charts-title" hidden>
+          <h4 id="exercise-charts-title">Gr&aacute;ficos</h4>
+          <p id="exercise-charts-empty" class="empty-state" hidden>A&ntilde;ade m&aacute;s series para ver gr&aacute;ficos de progreso.</p>
+
+          <div id="exercise-charts-grid" class="charts-grid" aria-live="polite">
+            <article class="chart-card">
+              <h5>Peso m&aacute;ximo por d&iacute;a</h5>
+              <div class="chart-frame">
+                <canvas id="max-weight-chart"></canvas>
+              </div>
+            </article>
+
+            <article class="chart-card">
+              <h5>Volumen total por d&iacute;a</h5>
+              <div class="chart-frame">
+                <canvas id="volume-chart"></canvas>
+              </div>
+            </article>
+
+            <article class="chart-card">
+              <h5>1RM estimado por d&iacute;a</h5>
+              <div class="chart-frame">
+                <canvas id="one-rep-max-chart"></canvas>
+              </div>
+            </article>
+          </div>
         </section>
 
         <button id="add-exercise-set-button" type="button" class="primary-button"></button>

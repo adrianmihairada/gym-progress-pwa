@@ -368,6 +368,46 @@ select:focus {
   margin-top: 4px;
 }
 
+.exercise-charts {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.exercise-charts h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.charts-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.chart-card {
+  min-width: 0;
+  padding: 12px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.chart-card h5 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}
+
+.chart-frame {
+  position: relative;
+  height: 240px;
+  min-height: 220px;
+}
+
+.chart-frame canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 .section-title-row,
 .workout-detail-header {
   display: flex;

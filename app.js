@@ -2,6 +2,7 @@ const STORAGE_KEY = 'gymprogress_sets';
 const WORKOUTS_STORAGE_KEY = 'gymprogress_workouts';
 const APP_VERSION = '1.0';
 const ROUTINE_TYPES = ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body', 'Otro'];
+const MIN_CHART_POINTS = 1;
 
 const form = document.querySelector('#workout-form');
 const viewButtons = document.querySelectorAll('[data-view-button]');
@@ -16,6 +17,12 @@ const exerciseDetailTitle = document.querySelector('#exercise-detail-title');
 const exerciseDetailCount = document.querySelector('#exercise-detail-count');
 const exerciseStatsGrid = document.querySelector('#exercise-stats-grid');
 const exerciseStatsEmpty = document.querySelector('#exercise-stats-empty');
+const exerciseChartsSection = document.querySelector('#exercise-charts');
+const exerciseChartsEmpty = document.querySelector('#exercise-charts-empty');
+const exerciseChartsGrid = document.querySelector('#exercise-charts-grid');
+const maxWeightChartCanvas = document.querySelector('#max-weight-chart');
+const volumeChartCanvas = document.querySelector('#volume-chart');
+const oneRepMaxChartCanvas = document.querySelector('#one-rep-max-chart');
 const exerciseSetList = document.querySelector('#exercise-set-list');
 const closeExerciseButton = document.querySelector('#close-exercise');
 const addExerciseSetButton = document.querySelector('#add-exercise-set-button');
@@ -56,6 +63,7 @@ let selectedExercise = '';
 let selectedWorkoutId = '';
 let isNewWorkoutOpen = false;
 let isExerciseSetFormOpen = false;
+let exerciseProgressCharts = {};
 
 renderAll();
 registerServiceWorker();
@@ -573,6 +581,10 @@ function showView(viewName) {
   if (viewName === 'workouts') {
     renderWorkouts();
   }
+
+  if (viewName === 'exercises') {
+    renderExercises();
+  }
 }
 
 function renderHistory() {
@@ -651,6 +663,7 @@ function renderExercises() {
     exerciseStatsGrid.innerHTML = '';
     exerciseStatsEmpty.hidden = true;
     exerciseSetList.innerHTML = '';
+    hideExerciseCharts();
     return;
   }
 
@@ -665,6 +678,7 @@ function renderExerciseDetail(group) {
   exerciseSetPanel.hidden = !isExerciseSetFormOpen;
   exerciseSetExerciseInput.value = group.name;
   renderExerciseStats(group.sets);
+  renderExerciseCharts(group.sets);
   renderExerciseWorkoutOptions();
   exerciseSetList.innerHTML = '';
 
@@ -751,6 +765,163 @@ function renderExerciseStats(exerciseSets) {
   ].forEach((stat) => {
     exerciseStatsGrid.appendChild(createStatCard(stat));
   });
+}
+
+function renderExerciseCharts(exerciseSets) {
+  const dailyProgress = getExerciseDailyProgress(exerciseSets);
+
+  destroyExerciseProgressCharts();
+  exerciseChartsSection.hidden = false;
+
+  if (dailyProgress.length < MIN_CHART_POINTS) {
+    showExerciseChartsMessage('A\u00f1ade m\u00e1s series para ver gr\u00e1ficos de progreso.');
+    return;
+  }
+
+  if (!globalThis.Chart) {
+    showExerciseChartsMessage('No se pudo cargar Chart.js. Revisa la conexi\u00f3n y vuelve a abrir la app.');
+    return;
+  }
+
+  const labels = dailyProgress.map((day) => formatDateOnly(day.dateKey));
+
+  exerciseChartsEmpty.hidden = true;
+  exerciseChartsGrid.hidden = false;
+
+  exerciseProgressCharts = {
+    maxWeight: createExerciseChart({
+      canvas: maxWeightChartCanvas,
+      type: 'line',
+      labels,
+      label: 'Peso m\u00e1ximo',
+      values: dailyProgress.map((day) => day.maxWeight),
+      borderColor: '#39d98a',
+      backgroundColor: 'rgba(57, 217, 138, 0.18)',
+      yAxisLabel: 'Peso m\u00e1ximo en kg'
+    }),
+    volume: createExerciseChart({
+      canvas: volumeChartCanvas,
+      type: 'bar',
+      labels,
+      label: 'Volumen total',
+      values: dailyProgress.map((day) => day.totalVolume),
+      borderColor: '#4dabf7',
+      backgroundColor: 'rgba(77, 171, 247, 0.45)',
+      yAxisLabel: 'Volumen total en kg'
+    }),
+    oneRepMax: createExerciseChart({
+      canvas: oneRepMaxChartCanvas,
+      type: 'line',
+      labels,
+      label: '1RM estimado',
+      values: dailyProgress.map((day) => day.bestOneRepMax),
+      borderColor: '#ffd166',
+      backgroundColor: 'rgba(255, 209, 102, 0.2)',
+      yAxisLabel: '1RM estimado en kg'
+    })
+  };
+}
+
+function createExerciseChart(config) {
+  const dataset = {
+    label: config.label,
+    data: config.values,
+    borderColor: config.borderColor,
+    backgroundColor: config.backgroundColor,
+    borderWidth: 2
+  };
+
+  if (config.type === 'line') {
+    dataset.tension = 0.25;
+    dataset.fill = false;
+    dataset.pointRadius = 3;
+    dataset.pointHoverRadius = 5;
+  } else {
+    dataset.maxBarThickness = 38;
+  }
+
+  return new globalThis.Chart(config.canvas, {
+    type: config.type,
+    data: {
+      labels: config.labels,
+      datasets: [dataset]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${config.label}: ${formatWeight(context.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Fecha',
+            color: '#a8b3c7'
+          },
+          grid: {
+            color: 'rgba(168, 179, 199, 0.12)'
+          },
+          ticks: {
+            color: '#a8b3c7',
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 5
+          }
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: config.yAxisLabel,
+            color: '#a8b3c7'
+          },
+          grid: {
+            color: 'rgba(168, 179, 199, 0.16)'
+          },
+          ticks: {
+            color: '#a8b3c7',
+            callback: (value) => formatNumber(value)
+          }
+        }
+      }
+    }
+  });
+}
+
+function showExerciseChartsMessage(message) {
+  exerciseChartsEmpty.textContent = message;
+  exerciseChartsEmpty.hidden = false;
+  exerciseChartsGrid.hidden = true;
+}
+
+function hideExerciseCharts() {
+  destroyExerciseProgressCharts();
+  exerciseChartsSection.hidden = true;
+  exerciseChartsEmpty.hidden = true;
+  exerciseChartsGrid.hidden = true;
+}
+
+function destroyExerciseProgressCharts() {
+  Object.values(exerciseProgressCharts).forEach((chart) => {
+    if (chart && typeof chart.destroy === 'function') {
+      chart.destroy();
+    }
+  });
+
+  exerciseProgressCharts = {};
 }
 
 function createStatCard(stat) {
@@ -1156,6 +1327,44 @@ function getExerciseStats(exerciseSets) {
   });
 
   return stats;
+}
+
+function getExerciseDailyProgress(exerciseSets) {
+  const days = new Map();
+
+  exerciseSets.forEach((set) => {
+    const statsSet = getValidStatsSet(set);
+
+    if (!statsSet) {
+      return;
+    }
+
+    const date = new Date(set.createdAt);
+
+    if (Number.isNaN(date.getTime())) {
+      return;
+    }
+
+    const dateKey = toDateInputValue(date);
+
+    if (!days.has(dateKey)) {
+      days.set(dateKey, {
+        dateKey,
+        maxWeight: statsSet.weight,
+        totalVolume: 0,
+        bestOneRepMax: statsSet.oneRepMax
+      });
+    }
+
+    const day = days.get(dateKey);
+
+    day.maxWeight = Math.max(day.maxWeight, statsSet.weight);
+    day.totalVolume += statsSet.volume;
+    day.bestOneRepMax = Math.max(day.bestOneRepMax, statsSet.oneRepMax);
+  });
+
+  return Array.from(days.values())
+    .sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 }
 
 function getValidStatsSet(set) {
