@@ -18,6 +18,7 @@
 
     <nav class="view-tabs" aria-label="Secciones">
       <button type="button" class="tab-button active" data-view-button="register" aria-selected="true">Registrar</button>
+      <button type="button" class="tab-button" data-view-button="workouts" aria-selected="false">Entrenamientos</button>
       <button type="button" class="tab-button" data-view-button="history" aria-selected="false">Historial</button>
       <button type="button" class="tab-button" data-view-button="exercises" aria-selected="false">Ejercicios</button>
     </nav>
@@ -56,6 +57,93 @@
 
       <p id="empty-state" class="empty-state">Aun no hay series guardadas.</p>
       <ul id="history-list" class="history-list" aria-live="polite"></ul>
+    </section>
+
+    <section id="workouts-view" class="panel workouts-panel view-section" data-view="workouts" aria-labelledby="workouts-title" hidden>
+      <div id="workouts-list-screen">
+        <div class="history-header">
+          <h2 id="workouts-title">Entrenamientos</h2>
+          <button id="new-workout-button" type="button" class="primary-button">Nuevo entrenamiento</button>
+        </div>
+
+        <p id="workouts-empty-state" class="empty-state">Aun no hay entrenamientos creados.</p>
+        <ul id="workouts-list" class="workouts-list" aria-live="polite"></ul>
+      </div>
+
+      <div id="new-workout-panel" class="sub-panel" hidden>
+        <div class="section-title-row">
+          <h2>Nuevo entrenamiento</h2>
+          <button id="cancel-new-workout" type="button" class="secondary-button">Cancelar</button>
+        </div>
+
+        <form id="new-workout-form" class="workout-form">
+          <label for="workout-date">Fecha</label>
+          <input id="workout-date" name="workoutDate" type="date" required>
+
+          <label for="workout-routine">Rutina</label>
+          <select id="workout-routine" name="workoutRoutine" required>
+            <option value="Push">Push</option>
+            <option value="Pull">Pull</option>
+            <option value="Legs">Legs</option>
+            <option value="Upper">Upper</option>
+            <option value="Lower">Lower</option>
+            <option value="Full Body">Full Body</option>
+            <option value="Otro">Otro</option>
+          </select>
+
+          <div id="custom-routine-field" hidden>
+            <label for="custom-routine">Nombre personalizado</label>
+            <input id="custom-routine" name="customRoutine" type="text" placeholder="Torso pesado">
+          </div>
+
+          <label for="workout-notes">Notas opcionales</label>
+          <textarea id="workout-notes" name="workoutNotes" rows="3" placeholder="Objetivo, sensaciones, descanso..."></textarea>
+
+          <button type="submit" class="primary-button">Crear entrenamiento</button>
+        </form>
+      </div>
+
+      <div id="workout-detail" hidden>
+        <div class="workout-detail-header">
+          <div>
+            <h2 id="workout-detail-title"></h2>
+            <p id="workout-detail-meta"></p>
+            <p id="workout-detail-notes" class="set-notes"></p>
+          </div>
+          <button id="close-workout-detail" type="button" class="secondary-button">Volver</button>
+        </div>
+
+        <div class="sub-panel">
+          <h3>Anadir serie</h3>
+          <form id="workout-set-form" class="workout-form">
+            <label for="workout-set-exercise">Ejercicio</label>
+            <input id="workout-set-exercise" name="exercise" type="text" placeholder="Press militar" required>
+
+            <div class="field-row">
+              <div>
+                <label for="workout-set-weight">Peso en kg</label>
+                <input id="workout-set-weight" name="weight" type="number" min="0" step="0.5" placeholder="40" required>
+              </div>
+
+              <div>
+                <label for="workout-set-reps">Repeticiones</label>
+                <input id="workout-set-reps" name="reps" type="number" min="1" step="1" placeholder="8" required>
+              </div>
+            </div>
+
+            <label for="workout-set-notes">Notas opcionales</label>
+            <textarea id="workout-set-notes" name="notes" rows="3" placeholder="RIR, tecnica, descanso..."></textarea>
+
+            <button type="submit" class="primary-button">Guardar serie</button>
+          </form>
+        </div>
+
+        <div class="workout-sets-section">
+          <h3>Series del entrenamiento</h3>
+          <p id="workout-sets-empty-state" class="empty-state">Aun no hay series en este entrenamiento.</p>
+          <ul id="workout-set-list" class="history-list" aria-live="polite"></ul>
+        </div>
+      </div>
     </section>
 
     <section id="exercises-view" class="panel exercises-panel view-section" data-view="exercises" aria-labelledby="exercises-title" hidden>

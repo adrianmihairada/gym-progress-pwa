@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'gymprogress_sets';
+const WORKOUTS_STORAGE_KEY = 'gymprogress_workouts';
+const ROUTINE_TYPES = ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body', 'Otro'];
 
 const form = document.querySelector('#workout-form');
 const viewButtons = document.querySelectorAll('[data-view-button]');
@@ -13,9 +15,32 @@ const exerciseDetailTitle = document.querySelector('#exercise-detail-title');
 const exerciseDetailCount = document.querySelector('#exercise-detail-count');
 const exerciseSetList = document.querySelector('#exercise-set-list');
 const closeExerciseButton = document.querySelector('#close-exercise');
+const workoutsListScreen = document.querySelector('#workouts-list-screen');
+const workoutsList = document.querySelector('#workouts-list');
+const workoutsEmptyState = document.querySelector('#workouts-empty-state');
+const newWorkoutButton = document.querySelector('#new-workout-button');
+const newWorkoutPanel = document.querySelector('#new-workout-panel');
+const newWorkoutForm = document.querySelector('#new-workout-form');
+const cancelNewWorkoutButton = document.querySelector('#cancel-new-workout');
+const workoutDateInput = document.querySelector('#workout-date');
+const workoutRoutineSelect = document.querySelector('#workout-routine');
+const customRoutineField = document.querySelector('#custom-routine-field');
+const customRoutineInput = document.querySelector('#custom-routine');
+const workoutDetail = document.querySelector('#workout-detail');
+const workoutDetailTitle = document.querySelector('#workout-detail-title');
+const workoutDetailMeta = document.querySelector('#workout-detail-meta');
+const workoutDetailNotes = document.querySelector('#workout-detail-notes');
+const closeWorkoutDetailButton = document.querySelector('#close-workout-detail');
+const workoutSetForm = document.querySelector('#workout-set-form');
+const workoutSetExerciseInput = document.querySelector('#workout-set-exercise');
+const workoutSetList = document.querySelector('#workout-set-list');
+const workoutSetsEmptyState = document.querySelector('#workout-sets-empty-state');
 
 let sets = loadSets();
+let workouts = loadWorkouts();
 let selectedExercise = '';
+let selectedWorkoutId = '';
+let isNewWorkoutOpen = false;
 
 renderAll();
 registerServiceWorker();
@@ -29,26 +54,13 @@ viewButtons.forEach((button) => {
 form.addEventListener('submit', (event) => {
   event.preventDefault();
 
-  const formData = new FormData(form);
-  const exercise = formData.get('exercise').trim();
-  const weight = Number(formData.get('weight'));
-  const reps = Number(formData.get('reps'));
-  const notes = formData.get('notes').trim();
+  const setData = getSetDataFromForm(form);
 
-  if (!exercise || weight < 0 || reps < 1) {
+  if (!setData) {
     return;
   }
 
-  const newSet = {
-    id: crypto.randomUUID(),
-    exercise,
-    weight,
-    reps,
-    notes,
-    createdAt: new Date().toISOString()
-  };
-
-  sets.unshift(newSet);
+  sets.unshift(createSet(setData));
   saveSets();
   renderAll();
   form.reset();
@@ -62,10 +74,7 @@ historyList.addEventListener('click', (event) => {
     return;
   }
 
-  const id = deleteButton.dataset.deleteId;
-  sets = sets.filter((set) => set.id !== id);
-  saveSets();
-  renderAll();
+  deleteSet(deleteButton.dataset.deleteId);
 });
 
 clearHistoryButton.addEventListener('click', () => {
@@ -101,6 +110,101 @@ closeExerciseButton.addEventListener('click', () => {
   renderExercises();
 });
 
+newWorkoutButton.addEventListener('click', () => {
+  openNewWorkoutForm();
+});
+
+cancelNewWorkoutButton.addEventListener('click', () => {
+  closeNewWorkoutForm();
+});
+
+workoutRoutineSelect.addEventListener('change', () => {
+  updateCustomRoutineVisibility();
+});
+
+newWorkoutForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  const formData = new FormData(newWorkoutForm);
+  const date = normalizeWorkoutDate(formData.get('workoutDate'));
+  const routineType = formData.get('workoutRoutine');
+  const customRoutine = String(formData.get('customRoutine') || '').trim();
+  const routineName = routineType === 'Otro' ? customRoutine : routineType;
+  const notes = String(formData.get('workoutNotes') || '').trim();
+
+  if (!date || !ROUTINE_TYPES.includes(routineType) || !routineName) {
+    return;
+  }
+
+  const existingWorkout = findWorkoutByDateAndRoutine(date, routineName);
+
+  if (existingWorkout) {
+    selectedWorkoutId = existingWorkout.id;
+    isNewWorkoutOpen = false;
+    renderWorkouts();
+    return;
+  }
+
+  const newWorkout = {
+    id: createId(),
+    date,
+    routineType,
+    routineName,
+    notes,
+    createdAt: new Date().toISOString()
+  };
+
+  workouts.unshift(newWorkout);
+  selectedWorkoutId = newWorkout.id;
+  isNewWorkoutOpen = false;
+  saveWorkouts();
+  renderAll();
+});
+
+workoutsList.addEventListener('click', (event) => {
+  const workoutButton = event.target.closest('[data-workout-id]');
+
+  if (!workoutButton) {
+    return;
+  }
+
+  selectedWorkoutId = workoutButton.dataset.workoutId;
+  isNewWorkoutOpen = false;
+  renderWorkouts();
+});
+
+closeWorkoutDetailButton.addEventListener('click', () => {
+  selectedWorkoutId = '';
+  renderWorkouts();
+});
+
+workoutSetForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+
+  const workout = getSelectedWorkout();
+  const setData = getSetDataFromForm(workoutSetForm);
+
+  if (!workout || !setData) {
+    return;
+  }
+
+  sets.unshift(createSet(setData, workout));
+  saveSets();
+  renderAll();
+  workoutSetForm.reset();
+  workoutSetExerciseInput.focus();
+});
+
+workoutSetList.addEventListener('click', (event) => {
+  const deleteButton = event.target.closest('[data-delete-id]');
+
+  if (!deleteButton) {
+    return;
+  }
+
+  deleteSet(deleteButton.dataset.deleteId);
+});
+
 function loadSets() {
   const savedSets = localStorage.getItem(STORAGE_KEY);
 
@@ -119,20 +223,70 @@ function loadSets() {
       .filter((set) => set && typeof set === 'object')
       .map((set) => ({
         ...set,
-        id: set.id || crypto.randomUUID()
+        id: set.id || createId()
       }));
   } catch {
     return [];
   }
 }
 
+function loadWorkouts() {
+  const savedWorkouts = localStorage.getItem(WORKOUTS_STORAGE_KEY);
+
+  if (!savedWorkouts) {
+    return [];
+  }
+
+  try {
+    const parsedWorkouts = JSON.parse(savedWorkouts);
+
+    if (!Array.isArray(parsedWorkouts)) {
+      return [];
+    }
+
+    return parsedWorkouts
+      .filter((workout) => workout && typeof workout === 'object')
+      .map((workout) => normalizeWorkout(workout))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function normalizeWorkout(workout) {
+  const date = normalizeWorkoutDate(workout.date || workout.workoutDate || workout.createdAt);
+  const rawRoutineType = String(workout.routineType || workout.workoutType || '').trim();
+  const routineType = ROUTINE_TYPES.includes(rawRoutineType) ? rawRoutineType : 'Otro';
+  const rawRoutineName = String(workout.routineName || workout.workoutType || rawRoutineType).trim();
+  const routineName = routineType === 'Otro' ? rawRoutineName || 'Otro' : routineType;
+
+  if (!date || !routineName) {
+    return null;
+  }
+
+  return {
+    ...workout,
+    id: workout.id || createId(),
+    date,
+    routineType,
+    routineName,
+    notes: String(workout.notes || '').trim(),
+    createdAt: workout.createdAt || new Date().toISOString()
+  };
+}
+
 function saveSets() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(sets));
+}
+
+function saveWorkouts() {
+  localStorage.setItem(WORKOUTS_STORAGE_KEY, JSON.stringify(workouts));
 }
 
 function renderAll() {
   renderHistory();
   renderExercises();
+  renderWorkouts();
 }
 
 function showView(viewName) {
@@ -145,6 +299,10 @@ function showView(viewName) {
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-selected', String(isActive));
   });
+
+  if (viewName === 'workouts') {
+    renderWorkouts();
+  }
 }
 
 function renderHistory() {
@@ -156,14 +314,13 @@ function renderHistory() {
     const item = document.createElement('li');
     item.className = 'history-item';
 
-    const date = formatDate(set.createdAt);
-
     item.innerHTML = `
       <div class="history-item-header">
         <div>
           <p class="exercise-name"></p>
           <p class="set-data"></p>
           <p class="set-date"></p>
+          <p class="set-workout"></p>
         </div>
         <button class="danger-button" type="button" data-delete-id="${set.id}">Borrar</button>
       </div>
@@ -171,7 +328,8 @@ function renderHistory() {
 
     item.querySelector('.exercise-name').textContent = getExerciseName(set);
     item.querySelector('.set-data').textContent = `${set.weight} kg x ${set.reps} repeticiones`;
-    item.querySelector('.set-date').textContent = date;
+    item.querySelector('.set-date').textContent = formatDate(set.createdAt);
+    item.querySelector('.set-workout').textContent = getSetWorkoutLabel(set);
 
     if (set.notes) {
       const notes = document.createElement('p');
@@ -240,10 +398,12 @@ function renderExerciseDetail(group) {
       item.innerHTML = `
         <p class="set-date"></p>
         <p class="set-data"></p>
+        <p class="set-workout"></p>
       `;
 
       item.querySelector('.set-date').textContent = formatDate(set.createdAt);
       item.querySelector('.set-data').textContent = `${set.weight} kg x ${set.reps} repeticiones`;
+      item.querySelector('.set-workout').textContent = getSetWorkoutLabel(set);
 
       if (set.notes) {
         const notes = document.createElement('p');
@@ -254,6 +414,190 @@ function renderExerciseDetail(group) {
 
       exerciseSetList.appendChild(item);
     });
+}
+
+function renderWorkouts() {
+  const selectedWorkout = getSelectedWorkout();
+
+  if (selectedWorkoutId && !selectedWorkout) {
+    selectedWorkoutId = '';
+  }
+
+  if (selectedWorkout) {
+    workoutsListScreen.hidden = true;
+    newWorkoutPanel.hidden = true;
+    workoutDetail.hidden = false;
+    renderWorkoutDetail(selectedWorkout);
+    return;
+  }
+
+  workoutDetail.hidden = true;
+  workoutsListScreen.hidden = isNewWorkoutOpen;
+  newWorkoutPanel.hidden = !isNewWorkoutOpen;
+
+  if (isNewWorkoutOpen) {
+    return;
+  }
+
+  workoutsList.innerHTML = '';
+  workoutsEmptyState.hidden = workouts.length > 0;
+
+  getWorkoutsByDate('desc').forEach((workout) => {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    const title = document.createElement('span');
+    const date = document.createElement('span');
+    const stats = document.createElement('span');
+    const workoutStats = getWorkoutStats(workout.id);
+
+    button.type = 'button';
+    button.className = 'workout-card';
+    button.dataset.workoutId = workout.id;
+
+    title.className = 'workout-routine';
+    title.textContent = getWorkoutRoutineLabel(workout);
+
+    date.className = 'workout-date';
+    date.textContent = formatDateOnly(workout.date);
+
+    stats.className = 'workout-stats';
+    stats.textContent = `${getSeriesShortLabel(workoutStats.sets)} - ${getExercisesShortLabel(workoutStats.exercises)}`;
+
+    button.append(date, title, stats);
+    item.appendChild(button);
+    workoutsList.appendChild(item);
+  });
+}
+
+function renderWorkoutDetail(workout) {
+  const stats = getWorkoutStats(workout.id);
+  const groups = getWorkoutExerciseGroups(workout.id);
+
+  workoutDetailTitle.textContent = `${formatDateOnly(workout.date)} - ${getWorkoutRoutineLabel(workout)}`;
+  workoutDetailMeta.textContent = `${getSeriesShortLabel(stats.sets)} - ${getExercisesShortLabel(stats.exercises)}`;
+  workoutDetailNotes.textContent = workout.notes;
+  workoutDetailNotes.hidden = !workout.notes;
+  workoutSetList.innerHTML = '';
+  workoutSetsEmptyState.hidden = groups.length > 0;
+
+  groups.forEach((group) => {
+    const groupItem = document.createElement('li');
+    const title = document.createElement('h4');
+    const count = document.createElement('p');
+    const seriesList = document.createElement('ol');
+
+    groupItem.className = 'workout-exercise-group';
+    title.textContent = group.name;
+    count.className = 'exercise-count';
+    count.textContent = getSeriesCountLabel(group.sets.length);
+    seriesList.className = 'history-list workout-group-list';
+
+    group.sets.forEach((set, index) => {
+      const setItem = document.createElement('li');
+
+      setItem.className = 'history-item';
+      setItem.innerHTML = `
+        <div class="history-item-header">
+          <div>
+            <p class="exercise-name"></p>
+            <p class="set-data"></p>
+            <p class="set-date"></p>
+          </div>
+          <button class="danger-button" type="button" data-delete-id="${set.id}">Borrar</button>
+        </div>
+      `;
+
+      setItem.querySelector('.exercise-name').textContent = `Serie ${index + 1}`;
+      setItem.querySelector('.set-data').textContent = `${set.weight} kg x ${set.reps} repeticiones`;
+      setItem.querySelector('.set-date').textContent = formatDate(set.createdAt);
+
+      if (set.notes) {
+        const notes = document.createElement('p');
+        notes.className = 'set-notes';
+        notes.textContent = set.notes;
+        setItem.appendChild(notes);
+      }
+
+      seriesList.appendChild(setItem);
+    });
+
+    groupItem.append(title, count, seriesList);
+    workoutSetList.appendChild(groupItem);
+  });
+}
+
+function openNewWorkoutForm() {
+  selectedWorkoutId = '';
+  isNewWorkoutOpen = true;
+  newWorkoutForm.reset();
+  workoutDateInput.value = getTodayInputValue();
+  workoutRoutineSelect.value = 'Push';
+  updateCustomRoutineVisibility();
+  renderWorkouts();
+  workoutDateInput.focus();
+}
+
+function closeNewWorkoutForm() {
+  isNewWorkoutOpen = false;
+  newWorkoutForm.reset();
+  updateCustomRoutineVisibility();
+  renderWorkouts();
+}
+
+function updateCustomRoutineVisibility() {
+  const isCustomRoutine = workoutRoutineSelect.value === 'Otro';
+
+  customRoutineField.hidden = !isCustomRoutine;
+  customRoutineInput.required = isCustomRoutine;
+
+  if (!isCustomRoutine) {
+    customRoutineInput.value = '';
+  }
+}
+
+function getSetDataFromForm(targetForm) {
+  const formData = new FormData(targetForm);
+  const exercise = String(formData.get('exercise') || '').trim();
+  const weight = Number(formData.get('weight'));
+  const reps = Number(formData.get('reps'));
+  const notes = String(formData.get('notes') || '').trim();
+
+  if (!exercise || weight < 0 || reps < 1) {
+    return null;
+  }
+
+  return {
+    exercise,
+    weight,
+    reps,
+    notes
+  };
+}
+
+function createSet(setData, workout) {
+  const newSet = {
+    id: createId(),
+    exercise: setData.exercise,
+    weight: setData.weight,
+    reps: setData.reps,
+    notes: setData.notes,
+    createdAt: new Date().toISOString()
+  };
+
+  if (workout) {
+    newSet.workoutId = workout.id;
+    newSet.workoutDate = workout.date;
+    newSet.workoutType = workout.routineType;
+    newSet.workoutRoutineName = getWorkoutRoutineLabel(workout);
+  }
+
+  return newSet;
+}
+
+function deleteSet(id) {
+  sets = sets.filter((set) => set.id !== id);
+  saveSets();
+  renderAll();
 }
 
 function getExerciseGroups() {
@@ -276,6 +620,39 @@ function getExerciseGroups() {
   return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name, 'es-ES'));
 }
 
+function getWorkoutExerciseGroups(workoutId) {
+  const groups = new Map();
+
+  sets
+    .filter((set) => set.workoutId === workoutId)
+    .sort((a, b) => getSetTime(a) - getSetTime(b))
+    .forEach((set) => {
+      const name = getExerciseName(set);
+      const key = getExerciseKey(name);
+
+      if (!groups.has(key)) {
+        groups.set(key, {
+          name,
+          sets: []
+        });
+      }
+
+      groups.get(key).sets.push(set);
+    });
+
+  return Array.from(groups.values());
+}
+
+function getWorkoutStats(workoutId) {
+  const workoutSets = sets.filter((set) => set.workoutId === workoutId);
+  const exerciseKeys = new Set(workoutSets.map((set) => getExerciseKey(getExerciseName(set))));
+
+  return {
+    sets: workoutSets.length,
+    exercises: exerciseKeys.size
+  };
+}
+
 function getSetsByDate(order) {
   const direction = order === 'asc' ? 1 : -1;
 
@@ -284,9 +661,45 @@ function getSetsByDate(order) {
     .sort((a, b) => (getSetTime(a) - getSetTime(b)) * direction);
 }
 
+function getWorkoutsByDate(order) {
+  const direction = order === 'asc' ? 1 : -1;
+
+  return workouts
+    .slice()
+    .sort((a, b) => {
+      const dateDifference = getWorkoutDateTime(a) - getWorkoutDateTime(b);
+
+      if (dateDifference !== 0) {
+        return dateDifference * direction;
+      }
+
+      return (getSetTime(a) - getSetTime(b)) * direction;
+    });
+}
+
+function getSelectedWorkout() {
+  return workouts.find((workout) => workout.id === selectedWorkoutId);
+}
+
+function findWorkoutByDateAndRoutine(date, routineName) {
+  const key = getWorkoutKey(date, routineName);
+
+  return workouts.find((workout) => getWorkoutKey(workout.date, getWorkoutRoutineLabel(workout)) === key);
+}
+
+function getWorkoutKey(date, routineName) {
+  return `${date}::${routineName.trim().toLocaleLowerCase('es-ES')}`;
+}
+
 function getSetTime(set) {
   const time = new Date(set.createdAt).getTime();
   return Number.isNaN(time) ? 0 : time;
+}
+
+function getWorkoutDateTime(workout) {
+  const date = getDateFromInputValue(workout.date);
+
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
 function getExerciseName(set) {
@@ -297,8 +710,32 @@ function getExerciseKey(name) {
   return name.toLocaleLowerCase('es-ES');
 }
 
+function getWorkoutRoutineLabel(workout) {
+  return (workout.routineName || workout.routineType || workout.workoutType || 'Otro').trim() || 'Otro';
+}
+
+function getSetWorkoutLabel(set) {
+  if (!set.workoutId) {
+    return 'Serie suelta';
+  }
+
+  const workout = workouts.find((item) => item.id === set.workoutId);
+  const workoutDate = set.workoutDate || (workout && workout.date);
+  const workoutType = workout ? getWorkoutRoutineLabel(workout) : set.workoutRoutineName || set.workoutType || 'Entrenamiento';
+
+  return `${formatDateOnly(workoutDate)} - ${workoutType}`;
+}
+
 function getSeriesCountLabel(count) {
   return count === 1 ? '1 serie guardada' : `${count} series guardadas`;
+}
+
+function getSeriesShortLabel(count) {
+  return count === 1 ? '1 serie' : `${count} series`;
+}
+
+function getExercisesShortLabel(count) {
+  return count === 1 ? '1 ejercicio' : `${count} ejercicios`;
 }
 
 function formatDate(dateValue) {
@@ -315,6 +752,68 @@ function formatDate(dateValue) {
     hour: '2-digit',
     minute: '2-digit'
   });
+}
+
+function formatDateOnly(dateValue) {
+  const date = getDateFromInputValue(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Sin fecha';
+  }
+
+  return date.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+}
+
+function normalizeWorkoutDate(dateValue) {
+  if (!dateValue) {
+    return '';
+  }
+
+  const stringValue = String(dateValue);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
+    return stringValue;
+  }
+
+  const date = new Date(stringValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return toDateInputValue(date);
+}
+
+function getDateFromInputValue(dateValue) {
+  if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    const [year, month, day] = dateValue.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  return new Date(dateValue);
+}
+
+function getTodayInputValue() {
+  return toDateInputValue(new Date());
+}
+
+function toDateInputValue(date) {
+  const localDate = new Date(date);
+
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+  return localDate.toISOString().slice(0, 10);
+}
+
+function createId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function registerServiceWorker() {
