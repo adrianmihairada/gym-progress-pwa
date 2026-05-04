@@ -59,7 +59,7 @@ button {
 
 .view-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin-top: 8px;
 }
@@ -370,6 +370,37 @@ select:focus {
 
 .workout-sets-section {
   margin-top: 18px;
+}
+
+.data-actions {
+  display: grid;
+  gap: 16px;
+}
+
+.data-block {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.data-block:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.data-block h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.data-message {
+  margin: 14px 0 0;
+  color: var(--accent);
+}
+
+.data-message.error {
+  color: var(--danger);
 }
 
 .workout-exercise-group {

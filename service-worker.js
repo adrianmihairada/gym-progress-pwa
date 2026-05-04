@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gymprogress-v5';
+const CACHE_NAME = 'gymprogress-v6';
 const FILES_TO_CACHE = [
   './',
   './index.html',

@@ -21,6 +21,7 @@
       <button type="button" class="tab-button" data-view-button="workouts" aria-selected="false">Entrenamientos</button>
       <button type="button" class="tab-button" data-view-button="history" aria-selected="false">Historial</button>
       <button type="button" class="tab-button" data-view-button="exercises" aria-selected="false">Ejercicios</button>
+      <button type="button" class="tab-button" data-view-button="data" aria-selected="false">Datos</button>
     </nav>
 
     <section id="register-view" class="panel view-section" data-view="register" aria-labelledby="form-title">
@@ -195,6 +196,29 @@
 
         <ul id="exercise-set-list" class="history-list progression-list" aria-live="polite"></ul>
       </div>
+    </section>
+
+    <section id="data-view" class="panel data-panel view-section" data-view="data" aria-labelledby="data-title" hidden>
+      <h2 id="data-title">Datos</h2>
+
+      <div class="data-actions">
+        <div class="data-block">
+          <h3>Copia de seguridad</h3>
+          <button id="export-backup-button" type="button" class="primary-button">Exportar copia de seguridad</button>
+
+          <div>
+            <label for="import-backup-input">Importar copia de seguridad</label>
+            <input id="import-backup-input" type="file" accept=".json,application/json">
+          </div>
+        </div>
+
+        <div class="data-block">
+          <h3>Borrado</h3>
+          <button id="clear-all-data-button" type="button" class="danger-button">Borrar todos los datos</button>
+        </div>
+      </div>
+
+      <p id="data-message" class="data-message" role="status" aria-live="polite" hidden></p>
     </section>
   </main>
 </body>

@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'gymprogress_sets';
 const WORKOUTS_STORAGE_KEY = 'gymprogress_workouts';
+const APP_VERSION = '1.0';
 const ROUTINE_TYPES = ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body', 'Otro'];
 
 const form = document.querySelector('#workout-form');
@@ -42,6 +43,10 @@ const workoutSetForm = document.querySelector('#workout-set-form');
 const workoutSetExerciseInput = document.querySelector('#workout-set-exercise');
 const workoutSetList = document.querySelector('#workout-set-list');
 const workoutSetsEmptyState = document.querySelector('#workout-sets-empty-state');
+const exportBackupButton = document.querySelector('#export-backup-button');
+const importBackupInput = document.querySelector('#import-backup-input');
+const clearAllDataButton = document.querySelector('#clear-all-data-button');
+const dataMessage = document.querySelector('#data-message');
 
 let sets = loadSets();
 let workouts = loadWorkouts();
@@ -254,6 +259,18 @@ workoutSetList.addEventListener('click', (event) => {
   deleteSet(deleteButton.dataset.deleteId);
 });
 
+exportBackupButton.addEventListener('click', () => {
+  exportBackup();
+});
+
+importBackupInput.addEventListener('change', () => {
+  importBackup();
+});
+
+clearAllDataButton.addEventListener('click', () => {
+  clearAllData();
+});
+
 function loadSets() {
   const savedSets = localStorage.getItem(STORAGE_KEY);
 
@@ -330,6 +347,208 @@ function saveSets() {
 
 function saveWorkouts() {
   localStorage.setItem(WORKOUTS_STORAGE_KEY, JSON.stringify(workouts));
+}
+
+function exportBackup() {
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    appVersion: APP_VERSION,
+    sets,
+    workouts
+  };
+  const backupJson = JSON.stringify(backup, null, 2);
+  const fileName = `gymprogress-backup-${toDateInputValue(new Date())}.json`;
+  const url = URL.createObjectURL(new Blob([backupJson], { type: 'application/json' }));
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  showDataMessage('Copia de seguridad exportada.');
+}
+
+async function importBackup() {
+  const file = importBackupInput.files[0];
+
+  if (!file) {
+    return;
+  }
+
+  try {
+    const parsedBackup = JSON.parse(await file.text());
+    const validatedBackup = validateBackup(parsedBackup);
+
+    if (!validatedBackup) {
+      showDataMessage('El archivo no es una copia de seguridad v\u00e1lida.', true);
+      return;
+    }
+
+    const confirmed = confirm('Esto reemplazar\u00e1 todos los datos actuales. \u00bfQuieres continuar?');
+
+    if (!confirmed) {
+      return;
+    }
+
+    replaceAppData(validatedBackup.sets, validatedBackup.workouts);
+    showDataMessage('Copia de seguridad importada.');
+  } catch {
+    showDataMessage('No se pudo leer el archivo JSON.', true);
+  } finally {
+    importBackupInput.value = '';
+  }
+}
+
+function validateBackup(backup) {
+  if (!backup || typeof backup !== 'object' || Array.isArray(backup)) {
+    return null;
+  }
+
+  const hasValidMetadata = typeof backup.exportedAt === 'string' &&
+    !Number.isNaN(new Date(backup.exportedAt).getTime()) &&
+    typeof backup.appVersion === 'string' &&
+    backup.appVersion.trim();
+
+  if (!hasValidMetadata) {
+    return null;
+  }
+
+  if (!Array.isArray(backup.sets) || !Array.isArray(backup.workouts)) {
+    return null;
+  }
+
+  const importedWorkouts = backup.workouts.map((workout) => normalizeImportedWorkout(workout));
+  const importedSets = backup.sets.map((set) => normalizeImportedSet(set));
+
+  if (importedWorkouts.some((workout) => !workout) || importedSets.some((set) => !set)) {
+    return null;
+  }
+
+  return {
+    sets: importedSets,
+    workouts: importedWorkouts
+  };
+}
+
+function normalizeImportedWorkout(workout) {
+  if (!workout || typeof workout !== 'object' || Array.isArray(workout)) {
+    return null;
+  }
+
+  const normalizedWorkout = normalizeWorkout(workout);
+
+  if (!normalizedWorkout) {
+    return null;
+  }
+
+  return {
+    ...normalizedWorkout,
+    id: String(normalizedWorkout.id)
+  };
+}
+
+function normalizeImportedSet(set) {
+  if (!set || typeof set !== 'object' || Array.isArray(set)) {
+    return null;
+  }
+
+  const exercise = String(set.exercise || '').trim();
+  const weight = Number(set.weight);
+  const reps = Number(set.reps);
+  const createdAt = normalizeImportedDate(set.createdAt);
+
+  if (!exercise || !Number.isFinite(weight) || !Number.isFinite(reps) || weight < 0 || reps < 1 || !createdAt) {
+    return null;
+  }
+
+  const normalizedSet = {
+    ...set,
+    id: String(set.id || createId()),
+    exercise,
+    weight,
+    reps,
+    notes: String(set.notes || '').trim(),
+    createdAt
+  };
+
+  if (set.workoutId) {
+    normalizedSet.workoutId = String(set.workoutId);
+  }
+
+  if (set.workoutDate) {
+    normalizedSet.workoutDate = normalizeWorkoutDate(set.workoutDate);
+  }
+
+  if (set.workoutType) {
+    normalizedSet.workoutType = String(set.workoutType).trim();
+  }
+
+  if (set.workoutRoutineName) {
+    normalizedSet.workoutRoutineName = String(set.workoutRoutineName).trim();
+  }
+
+  return normalizedSet;
+}
+
+function normalizeImportedDate(dateValue) {
+  if (!dateValue) {
+    return new Date().toISOString();
+  }
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString();
+}
+
+function clearAllData() {
+  const confirmationText = prompt(
+    'Esto borrar\u00e1 todas las series y entrenamientos guardados.\n\n' +
+    'Escribe BORRAR para confirmar:'
+  );
+
+  if (String(confirmationText || '').trim() !== 'BORRAR') {
+    return;
+  }
+
+  sets = [];
+  workouts = [];
+  resetStateAfterDataChange();
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(WORKOUTS_STORAGE_KEY);
+  renderAll();
+  showDataMessage('Todos los datos se han borrado.');
+}
+
+function replaceAppData(nextSets, nextWorkouts) {
+  sets = nextSets;
+  workouts = nextWorkouts;
+  resetStateAfterDataChange();
+  saveSets();
+  saveWorkouts();
+  renderAll();
+}
+
+function resetStateAfterDataChange() {
+  selectedExercise = '';
+  selectedWorkoutId = '';
+  isNewWorkoutOpen = false;
+  isExerciseSetFormOpen = false;
+  form.reset();
+  exerciseSetForm.reset();
+  newWorkoutForm.reset();
+  workoutSetForm.reset();
+}
+
+function showDataMessage(message, isError = false) {
+  dataMessage.textContent = message;
+  dataMessage.hidden = false;
+  dataMessage.classList.toggle('error', isError);
 }
 
 function renderAll() {
