@@ -1,0 +1,24 @@
+{
+  "name": "GymProgress",
+  "short_name": "GymProgress",
+  "description": "Registro sencillo de progreso en el gimnasio.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0f141f",
+  "theme_color": "#121826",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='36' fill='%23121826'/%3E%3Cpath d='M48 105h96v18H48zM30 84h18v60H30zM144 84h18v60h-18zM58 72h18v84H58zM116 72h18v84h-18z' fill='%2339d98a'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23121826'/%3E%3Cpath d='M128 280h256v48H128zM80 224h48v160H80zM384 224h48v160h-48zM152 192h48v224h-48zM312 192h48v224h-48z' fill='%2339d98a'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
