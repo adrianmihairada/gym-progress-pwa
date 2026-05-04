@@ -16,7 +16,13 @@
       <p>Registra tus series y revisa tu progreso.</p>
     </header>
 
-    <section class="panel" aria-labelledby="form-title">
+    <nav class="view-tabs" aria-label="Secciones">
+      <button type="button" class="tab-button active" data-view-button="register" aria-selected="true">Registrar</button>
+      <button type="button" class="tab-button" data-view-button="history" aria-selected="false">Historial</button>
+      <button type="button" class="tab-button" data-view-button="exercises" aria-selected="false">Ejercicios</button>
+    </nav>
+
+    <section id="register-view" class="panel view-section" data-view="register" aria-labelledby="form-title">
       <h2 id="form-title">Nueva serie</h2>
 
       <form id="workout-form" class="workout-form">
@@ -36,20 +42,38 @@
         </div>
 
         <label for="notes">Notas opcionales</label>
-        <textarea id="notes" name="notes" rows="3" placeholder="Sensaciones, técnica, descanso..."></textarea>
+        <textarea id="notes" name="notes" rows="3" placeholder="Sensaciones, tecnica, descanso..."></textarea>
 
         <button type="submit" class="primary-button">Guardar serie</button>
       </form>
     </section>
 
-    <section class="panel history-panel" aria-labelledby="history-title">
+    <section id="history-view" class="panel history-panel view-section" data-view="history" aria-labelledby="history-title" hidden>
       <div class="history-header">
         <h2 id="history-title">Historial</h2>
         <button id="clear-history" type="button" class="ghost-button">Borrar todo</button>
       </div>
 
-      <p id="empty-state" class="empty-state">Aún no hay series guardadas.</p>
+      <p id="empty-state" class="empty-state">Aun no hay series guardadas.</p>
       <ul id="history-list" class="history-list" aria-live="polite"></ul>
+    </section>
+
+    <section id="exercises-view" class="panel exercises-panel view-section" data-view="exercises" aria-labelledby="exercises-title" hidden>
+      <h2 id="exercises-title">Ejercicios</h2>
+
+      <p id="exercises-empty-state" class="empty-state">Aun no hay ejercicios registrados.</p>
+      <ul id="exercise-list" class="exercise-list" aria-live="polite"></ul>
+
+      <div id="exercise-detail" class="exercise-detail" hidden>
+        <div class="exercise-detail-header">
+          <div>
+            <h3 id="exercise-detail-title"></h3>
+            <p id="exercise-detail-count"></p>
+          </div>
+          <button id="close-exercise" type="button" class="ghost-button">Volver</button>
+        </div>
+        <ul id="exercise-set-list" class="history-list progression-list" aria-live="polite"></ul>
+      </div>
     </section>
   </main>
 </body>

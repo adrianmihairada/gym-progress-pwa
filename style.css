@@ -56,6 +56,29 @@ button {
   color: var(--muted);
 }
 
+.view-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tab-button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  padding: 10px 8px;
+  font-weight: 700;
+}
+
+.tab-button.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #07120c;
+}
+
 .panel {
   margin-top: 16px;
   padding: 18px;
@@ -164,6 +187,14 @@ textarea:focus {
   padding: 0;
 }
 
+.exercise-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .history-item {
   padding: 14px;
   background: var(--panel-soft);
@@ -181,6 +212,56 @@ textarea:focus {
 .exercise-name {
   margin: 0;
   font-weight: 700;
+}
+
+.exercise-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 54px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+  color: var(--text);
+  text-align: left;
+}
+
+.exercise-card.active {
+  border-color: var(--accent);
+}
+
+.exercise-count {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.exercise-detail {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.exercise-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.exercise-detail-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.exercise-detail-header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
 }
 
 .set-data,
@@ -203,5 +284,15 @@ textarea:focus {
   .history-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .exercise-card,
+  .exercise-detail-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .exercise-count {
+    white-space: normal;
   }
 }
