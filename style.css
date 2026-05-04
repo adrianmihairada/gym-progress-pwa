@@ -321,6 +321,53 @@ select:focus {
   font-size: 0.95rem;
 }
 
+.exercise-stats {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.exercise-stats h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat-card {
+  min-width: 0;
+  padding: 12px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.stat-label,
+.stat-value,
+.stat-detail {
+  margin: 0;
+}
+
+.stat-label,
+.stat-detail {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.stat-value {
+  margin-top: 6px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.stat-detail {
+  margin-top: 4px;
+}
+
 .section-title-row,
 .workout-detail-header {
   display: flex;
@@ -436,6 +483,10 @@ select:focus {
 
 @media (max-width: 380px) {
   .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
     grid-template-columns: 1fr;
   }
 

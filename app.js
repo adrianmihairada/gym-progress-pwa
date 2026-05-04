@@ -14,6 +14,8 @@ const exercisesEmptyState = document.querySelector('#exercises-empty-state');
 const exerciseDetail = document.querySelector('#exercise-detail');
 const exerciseDetailTitle = document.querySelector('#exercise-detail-title');
 const exerciseDetailCount = document.querySelector('#exercise-detail-count');
+const exerciseStatsGrid = document.querySelector('#exercise-stats-grid');
+const exerciseStatsEmpty = document.querySelector('#exercise-stats-empty');
 const exerciseSetList = document.querySelector('#exercise-set-list');
 const closeExerciseButton = document.querySelector('#close-exercise');
 const addExerciseSetButton = document.querySelector('#add-exercise-set-button');
@@ -646,6 +648,8 @@ function renderExercises() {
     isExerciseSetFormOpen = false;
     exerciseDetail.hidden = true;
     exerciseSetForm.reset();
+    exerciseStatsGrid.innerHTML = '';
+    exerciseStatsEmpty.hidden = true;
     exerciseSetList.innerHTML = '';
     return;
   }
@@ -660,6 +664,7 @@ function renderExerciseDetail(group) {
   addExerciseSetButton.textContent = `+ A\u00f1adir serie a ${group.name}`;
   exerciseSetPanel.hidden = !isExerciseSetFormOpen;
   exerciseSetExerciseInput.value = group.name;
+  renderExerciseStats(group.sets);
   renderExerciseWorkoutOptions();
   exerciseSetList.innerHTML = '';
 
@@ -688,6 +693,87 @@ function renderExerciseDetail(group) {
 
       exerciseSetList.appendChild(item);
     });
+}
+
+function renderExerciseStats(exerciseSets) {
+  const stats = getExerciseStats(exerciseSets);
+
+  exerciseStatsGrid.innerHTML = '';
+
+  if (!stats) {
+    exerciseStatsEmpty.textContent = exerciseSets.length === 0
+      ? 'Aun no hay series para este ejercicio.'
+      : 'No hay series v\u00e1lidas para calcular estad\u00edsticas.';
+    exerciseStatsEmpty.hidden = false;
+    exerciseStatsGrid.hidden = true;
+    return;
+  }
+
+  exerciseStatsEmpty.hidden = true;
+  exerciseStatsGrid.hidden = false;
+
+  [
+    {
+      label: 'Series totales',
+      value: formatNumber(stats.totalSets)
+    },
+    {
+      label: 'Peso m\u00e1ximo usado',
+      value: formatWeight(stats.maxWeight)
+    },
+    {
+      label: 'Mejor serie por peso',
+      value: formatStatsSet(stats.bestWeightSet)
+    },
+    {
+      label: 'Mejor volumen en una serie',
+      value: formatVolume(stats.bestVolumeSet.volume),
+      detail: formatStatsSet(stats.bestVolumeSet)
+    },
+    {
+      label: 'Volumen total acumulado',
+      value: formatVolume(stats.totalVolume)
+    },
+    {
+      label: 'Repeticiones totales',
+      value: formatNumber(stats.totalReps)
+    },
+    {
+      label: '\u00daltima serie registrada',
+      value: formatStatsSet(stats.latestSet),
+      detail: formatDate(stats.latestSet.set.createdAt)
+    },
+    {
+      label: '1RM estimado aproximado',
+      value: formatWeight(stats.bestOneRepMaxSet.oneRepMax),
+      detail: formatStatsSet(stats.bestOneRepMaxSet)
+    }
+  ].forEach((stat) => {
+    exerciseStatsGrid.appendChild(createStatCard(stat));
+  });
+}
+
+function createStatCard(stat) {
+  const card = document.createElement('article');
+  const label = document.createElement('p');
+  const value = document.createElement('p');
+
+  card.className = 'stat-card';
+  label.className = 'stat-label';
+  value.className = 'stat-value';
+  label.textContent = stat.label;
+  value.textContent = stat.value;
+  card.append(label, value);
+
+  if (stat.detail) {
+    const detail = document.createElement('p');
+
+    detail.className = 'stat-detail';
+    detail.textContent = stat.detail;
+    card.appendChild(detail);
+  }
+
+  return card;
 }
 
 function renderExerciseWorkoutOptions() {
@@ -1024,6 +1110,80 @@ function getWorkoutStats(workoutId) {
   };
 }
 
+function getExerciseStats(exerciseSets) {
+  const validSets = exerciseSets
+    .map((set) => getValidStatsSet(set))
+    .filter(Boolean);
+
+  if (validSets.length === 0) {
+    return null;
+  }
+
+  const stats = {
+    totalSets: validSets.length,
+    totalVolume: 0,
+    totalReps: 0,
+    maxWeight: validSets[0].weight,
+    bestWeightSet: validSets[0],
+    bestVolumeSet: validSets[0],
+    latestSet: validSets[0],
+    bestOneRepMaxSet: validSets[0]
+  };
+
+  validSets.forEach((statsSet) => {
+    stats.totalVolume += statsSet.volume;
+    stats.totalReps += statsSet.reps;
+    stats.maxWeight = Math.max(stats.maxWeight, statsSet.weight);
+
+    if (
+      statsSet.weight > stats.bestWeightSet.weight ||
+      (statsSet.weight === stats.bestWeightSet.weight && statsSet.reps > stats.bestWeightSet.reps)
+    ) {
+      stats.bestWeightSet = statsSet;
+    }
+
+    if (statsSet.volume > stats.bestVolumeSet.volume) {
+      stats.bestVolumeSet = statsSet;
+    }
+
+    if (statsSet.time > stats.latestSet.time) {
+      stats.latestSet = statsSet;
+    }
+
+    if (statsSet.oneRepMax > stats.bestOneRepMaxSet.oneRepMax) {
+      stats.bestOneRepMaxSet = statsSet;
+    }
+  });
+
+  return stats;
+}
+
+function getValidStatsSet(set) {
+  if (isMissingStatsValue(set.weight) || isMissingStatsValue(set.reps)) {
+    return null;
+  }
+
+  const weight = Number(set.weight);
+  const reps = Number(set.reps);
+
+  if (!Number.isFinite(weight) || !Number.isFinite(reps) || weight < 0 || reps <= 0) {
+    return null;
+  }
+
+  return {
+    set,
+    weight,
+    reps,
+    volume: weight * reps,
+    time: getSetTime(set),
+    oneRepMax: weight * (1 + reps / 30)
+  };
+}
+
+function isMissingStatsValue(value) {
+  return value === null || typeof value === 'undefined' || typeof value === 'boolean' || String(value).trim() === '';
+}
+
 function getSetsByDate(order) {
   const direction = order === 'asc' ? 1 : -1;
 
@@ -1111,6 +1271,24 @@ function getSeriesShortLabel(count) {
 
 function getExercisesShortLabel(count) {
   return count === 1 ? '1 ejercicio' : `${count} ejercicios`;
+}
+
+function formatStatsSet(statsSet) {
+  return `${formatWeight(statsSet.weight)} x ${formatNumber(statsSet.reps)} repeticiones`;
+}
+
+function formatWeight(weight) {
+  return `${formatNumber(weight)} kg`;
+}
+
+function formatVolume(volume) {
+  return `${formatNumber(volume)} kg de volumen`;
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat('es-ES', {
+    maximumFractionDigits: 1
+  }).format(value);
 }
 
 function formatDate(dateValue) {
