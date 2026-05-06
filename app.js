@@ -56,6 +56,7 @@ const exportBackupButton = document.querySelector('#export-backup-button');
 const importBackupInput = document.querySelector('#import-backup-input');
 const clearAllDataButton = document.querySelector('#clear-all-data-button');
 const dataMessage = document.querySelector('#data-message');
+const exerciseSuggestionsList = document.querySelector('#exercise-suggestions');
 
 let sets = loadSets();
 let workouts = loadWorkouts();
@@ -562,9 +563,25 @@ function showDataMessage(message, isError = false) {
 }
 
 function renderAll() {
+  renderExerciseSuggestions();
   renderHistory();
   renderExercises();
   renderWorkouts();
+}
+
+function renderExerciseSuggestions() {
+  if (!exerciseSuggestionsList) {
+    return;
+  }
+
+  exerciseSuggestionsList.innerHTML = '';
+
+  getExerciseSuggestions().forEach((exercise) => {
+    const option = document.createElement('option');
+
+    option.value = exercise;
+    exerciseSuggestionsList.appendChild(option);
+  });
 }
 
 function showView(viewName) {
@@ -1120,7 +1137,7 @@ function updateCustomRoutineVisibility() {
 
 function getSetDataFromForm(targetForm) {
   const formData = new FormData(targetForm);
-  const exercise = String(formData.get('exercise') || '').trim();
+  const exercise = normalizeExerciseName(formData.get('exercise'));
   const weight = Number(formData.get('weight'));
   const reps = Number(formData.get('reps'));
   const notes = String(formData.get('notes') || '').trim();
@@ -1446,12 +1463,31 @@ function getWorkoutDateTime(workout) {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
+function getExerciseSuggestions() {
+  const exercises = new Map();
+
+  sets.forEach((set) => {
+    const name = normalizeExerciseName(set.exercise);
+    const key = getExerciseKey(name);
+
+    if (name && !exercises.has(key)) {
+      exercises.set(key, name);
+    }
+  });
+
+  return Array.from(exercises.values()).sort((a, b) => a.localeCompare(b, 'es-ES'));
+}
+
 function getExerciseName(set) {
-  return (set.exercise || 'Sin ejercicio').trim() || 'Sin ejercicio';
+  return normalizeExerciseName(set.exercise) || 'Sin ejercicio';
 }
 
 function getExerciseKey(name) {
-  return name.toLocaleLowerCase('es-ES');
+  return normalizeExerciseName(name).toLocaleLowerCase('es-ES');
+}
+
+function normalizeExerciseName(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ');
 }
 
 function getWorkoutRoutineLabel(workout) {

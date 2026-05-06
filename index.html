@@ -30,7 +30,7 @@
 
       <form id="workout-form" class="workout-form">
         <label for="exercise">Ejercicio</label>
-        <input id="exercise" name="exercise" type="text" placeholder="Press banca" required>
+        <input id="exercise" name="exercise" type="text" list="exercise-suggestions" placeholder="Press banca" required>
 
         <div class="field-row">
           <div>
@@ -122,7 +122,7 @@
           <h3>Anadir serie</h3>
           <form id="workout-set-form" class="workout-form">
             <label for="workout-set-exercise">Ejercicio</label>
-            <input id="workout-set-exercise" name="exercise" type="text" placeholder="Press militar" required>
+            <input id="workout-set-exercise" name="exercise" type="text" list="exercise-suggestions" placeholder="Press militar" required>
 
             <div class="field-row">
               <div>
@@ -255,6 +255,8 @@
 
       <p id="data-message" class="data-message" role="status" aria-live="polite" hidden></p>
     </section>
+
+    <datalist id="exercise-suggestions"></datalist>
   </main>
 </body>
 </html>
