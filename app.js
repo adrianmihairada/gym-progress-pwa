@@ -57,6 +57,7 @@ const importBackupInput = document.querySelector('#import-backup-input');
 const clearAllDataButton = document.querySelector('#clear-all-data-button');
 const dataMessage = document.querySelector('#data-message');
 const exerciseSuggestionsList = document.querySelector('#exercise-suggestions');
+const setForms = [form, exerciseSetForm, workoutSetForm].filter(Boolean);
 
 let sets = loadSets();
 let workouts = loadWorkouts();
@@ -65,6 +66,10 @@ let selectedWorkoutId = '';
 let isNewWorkoutOpen = false;
 let isExerciseSetFormOpen = false;
 let exerciseProgressCharts = {};
+
+setForms.forEach((setForm) => {
+  setupSetForm(setForm);
+});
 
 renderAll();
 registerServiceWorker();
@@ -87,7 +92,7 @@ form.addEventListener('submit', (event) => {
   sets.unshift(createSet(setData));
   saveSets();
   renderAll();
-  form.reset();
+  resetSetForm(form);
   document.querySelector('#exercise').focus();
 });
 
@@ -128,6 +133,7 @@ exerciseList.addEventListener('click', (event) => {
 
   if (getExerciseKey(selectedExercise) !== getExerciseKey(exerciseButton.dataset.exerciseName)) {
     isExerciseSetFormOpen = false;
+    resetSetForm(exerciseSetForm);
   }
 
   selectedExercise = exerciseButton.dataset.exerciseName;
@@ -159,7 +165,7 @@ exerciseSetForm.addEventListener('submit', (event) => {
 
   sets.unshift(createSet(setData, workout));
   saveSets();
-  exerciseSetForm.reset();
+  resetSetForm(exerciseSetForm);
   renderAll();
   exerciseSetWeightInput.focus();
 });
@@ -256,7 +262,7 @@ workoutSetForm.addEventListener('submit', (event) => {
   sets.unshift(createSet(setData, workout));
   saveSets();
   renderAll();
-  workoutSetForm.reset();
+  resetSetForm(workoutSetForm);
   workoutSetExerciseInput.focus();
 });
 
@@ -465,12 +471,31 @@ function normalizeImportedSet(set) {
     return null;
   }
 
-  const exercise = String(set.exercise || '').trim();
+  const exercise = normalizeExerciseName(set.exercise);
   const weight = Number(set.weight);
-  const reps = Number(set.reps);
+  const isUnilateral = set.isUnilateral === true;
   const createdAt = normalizeImportedDate(set.createdAt);
 
-  if (!exercise || !Number.isFinite(weight) || !Number.isFinite(reps) || weight < 0 || reps < 1 || !createdAt) {
+  if (!exercise || !Number.isFinite(weight) || weight < 0 || !createdAt) {
+    return null;
+  }
+
+  let reps = Number(set.reps);
+  let repsLeft = null;
+  let repsRight = null;
+
+  if (isUnilateral) {
+    repsLeft = Number(set.repsLeft);
+    repsRight = Number(set.repsRight);
+
+    if (!Number.isFinite(repsLeft) || !Number.isFinite(repsRight) || repsLeft <= 0 || repsRight <= 0) {
+      return null;
+    }
+
+    reps = repsLeft + repsRight;
+  }
+
+  if (!isUnilateral && (!Number.isFinite(reps) || reps < 1)) {
     return null;
   }
 
@@ -480,9 +505,18 @@ function normalizeImportedSet(set) {
     exercise,
     weight,
     reps,
+    isUnilateral,
     notes: String(set.notes || '').trim(),
     createdAt
   };
+
+  if (isUnilateral) {
+    normalizedSet.repsLeft = repsLeft;
+    normalizedSet.repsRight = repsRight;
+  } else {
+    delete normalizedSet.repsLeft;
+    delete normalizedSet.repsRight;
+  }
 
   if (set.workoutId) {
     normalizedSet.workoutId = String(set.workoutId);
@@ -550,10 +584,10 @@ function resetStateAfterDataChange() {
   selectedWorkoutId = '';
   isNewWorkoutOpen = false;
   isExerciseSetFormOpen = false;
-  form.reset();
-  exerciseSetForm.reset();
+  resetSetForm(form);
+  resetSetForm(exerciseSetForm);
   newWorkoutForm.reset();
-  workoutSetForm.reset();
+  resetSetForm(workoutSetForm);
 }
 
 function showDataMessage(message, isError = false) {
@@ -626,7 +660,7 @@ function renderHistory() {
     `;
 
     item.querySelector('.exercise-name').textContent = getExerciseName(set);
-    item.querySelector('.set-data').textContent = `${set.weight} kg x ${set.reps} repeticiones`;
+    item.querySelector('.set-data').textContent = formatSetData(set);
     item.querySelector('.set-date').textContent = formatDate(set.createdAt);
     item.querySelector('.set-workout').textContent = getSetWorkoutLabel(set);
 
@@ -676,7 +710,7 @@ function renderExercises() {
     selectedExercise = '';
     isExerciseSetFormOpen = false;
     exerciseDetail.hidden = true;
-    exerciseSetForm.reset();
+    resetSetForm(exerciseSetForm);
     exerciseStatsGrid.innerHTML = '';
     exerciseStatsEmpty.hidden = true;
     exerciseSetList.innerHTML = '';
@@ -694,6 +728,7 @@ function renderExerciseDetail(group) {
   addExerciseSetButton.textContent = `+ A\u00f1adir serie a ${group.name}`;
   exerciseSetPanel.hidden = !isExerciseSetFormOpen;
   exerciseSetExerciseInput.value = group.name;
+  applyUnilateralSuggestion(exerciseSetForm);
   renderExerciseStats(group.sets);
   renderExerciseCharts(group.sets);
   renderExerciseWorkoutOptions();
@@ -712,7 +747,7 @@ function renderExerciseDetail(group) {
       `;
 
       item.querySelector('.set-date').textContent = formatDate(set.createdAt);
-      item.querySelector('.set-data').textContent = `${set.weight} kg x ${set.reps} repeticiones`;
+      item.querySelector('.set-data').textContent = formatSetData(set);
       item.querySelector('.set-workout').textContent = getSetWorkoutLabel(set);
 
       if (set.notes) {
@@ -1088,7 +1123,7 @@ function renderWorkoutDetail(workout) {
       `;
 
       setItem.querySelector('.exercise-name').textContent = `Serie ${index + 1}`;
-      setItem.querySelector('.set-data').textContent = `${set.weight} kg x ${set.reps} repeticiones`;
+      setItem.querySelector('.set-data').textContent = formatSetData(set);
       setItem.querySelector('.set-date').textContent = formatDate(set.createdAt);
 
       if (set.notes) {
@@ -1135,14 +1170,160 @@ function updateCustomRoutineVisibility() {
   }
 }
 
+function setupSetForm(targetForm) {
+  const controls = getSetFormControls(targetForm);
+
+  if (!controls.toggle) {
+    return;
+  }
+
+  controls.toggle.addEventListener('change', () => {
+    targetForm.dataset.unilateralChoice = 'manual';
+    targetForm.dataset.unilateralChoiceKey = getExerciseKey(controls.exerciseInput ? controls.exerciseInput.value : '');
+    updateSetFormUnilateralFields(targetForm);
+  });
+
+  if (controls.exerciseInput && controls.exerciseInput.type !== 'hidden') {
+    controls.exerciseInput.addEventListener('input', () => {
+      applyUnilateralSuggestion(targetForm);
+    });
+    controls.exerciseInput.addEventListener('change', () => {
+      applyUnilateralSuggestion(targetForm);
+    });
+  }
+
+  targetForm.addEventListener('reset', () => {
+    setTimeout(() => updateSetFormUnilateralFields(targetForm), 0);
+  });
+
+  updateSetFormUnilateralFields(targetForm);
+}
+
+function getSetFormControls(targetForm) {
+  return {
+    exerciseInput: targetForm.querySelector('[name="exercise"]'),
+    toggle: targetForm.querySelector('[data-unilateral-toggle]'),
+    normalRepsField: targetForm.querySelector('[data-normal-reps-field]'),
+    normalRepsInput: targetForm.querySelector('[name="reps"]'),
+    unilateralRepsFields: targetForm.querySelector('[data-unilateral-reps-fields]'),
+    repsLeftInput: targetForm.querySelector('[name="repsLeft"]'),
+    repsRightInput: targetForm.querySelector('[name="repsRight"]')
+  };
+}
+
+function resetSetForm(targetForm) {
+  delete targetForm.dataset.unilateralChoice;
+  delete targetForm.dataset.unilateralChoiceKey;
+  targetForm.reset();
+  updateSetFormUnilateralFields(targetForm);
+}
+
+function applyUnilateralSuggestion(targetForm) {
+  const controls = getSetFormControls(targetForm);
+  const exercise = controls.exerciseInput ? controls.exerciseInput.value : '';
+  const exerciseKey = getExerciseKey(exercise);
+
+  if (!controls.toggle) {
+    return;
+  }
+
+  if (targetForm.dataset.unilateralChoice === 'manual' && targetForm.dataset.unilateralChoiceKey === exerciseKey) {
+    return;
+  }
+
+  if (isExerciseUsuallyUnilateral(exercise)) {
+    controls.toggle.checked = true;
+    targetForm.dataset.unilateralChoice = 'suggested';
+    targetForm.dataset.unilateralChoiceKey = exerciseKey;
+    updateSetFormUnilateralFields(targetForm);
+    return;
+  }
+
+  if (targetForm.dataset.unilateralChoice === 'suggested') {
+    controls.toggle.checked = false;
+    delete targetForm.dataset.unilateralChoice;
+    delete targetForm.dataset.unilateralChoiceKey;
+  }
+
+  updateSetFormUnilateralFields(targetForm);
+}
+
+function updateSetFormUnilateralFields(targetForm) {
+  const controls = getSetFormControls(targetForm);
+
+  if (!controls.toggle) {
+    return;
+  }
+
+  const isUnilateral = controls.toggle.checked;
+
+  if (controls.normalRepsField) {
+    controls.normalRepsField.hidden = isUnilateral;
+  }
+
+  if (controls.normalRepsInput) {
+    controls.normalRepsInput.disabled = isUnilateral;
+    controls.normalRepsInput.required = !isUnilateral;
+  }
+
+  if (controls.unilateralRepsFields) {
+    controls.unilateralRepsFields.hidden = !isUnilateral;
+  }
+
+  [controls.repsLeftInput, controls.repsRightInput].forEach((input) => {
+    if (!input) {
+      return;
+    }
+
+    input.disabled = !isUnilateral;
+    input.required = isUnilateral;
+  });
+}
+
 function getSetDataFromForm(targetForm) {
   const formData = new FormData(targetForm);
-  const exercise = normalizeExerciseName(formData.get('exercise'));
-  const weight = Number(formData.get('weight'));
-  const reps = Number(formData.get('reps'));
+  const exercise = getCanonicalExerciseName(formData.get('exercise'));
+  const rawWeight = formData.get('weight');
+  const weight = Number(rawWeight);
+  const isUnilateral = formData.get('isUnilateral') === 'true';
   const notes = String(formData.get('notes') || '').trim();
 
-  if (!exercise || weight < 0 || reps < 1) {
+  if (!exercise || isMissingFormValue(rawWeight) || !Number.isFinite(weight) || weight < 0) {
+    return null;
+  }
+
+  if (isUnilateral) {
+    const rawRepsLeft = formData.get('repsLeft');
+    const rawRepsRight = formData.get('repsRight');
+    const repsLeft = Number(rawRepsLeft);
+    const repsRight = Number(rawRepsRight);
+
+    if (
+      isMissingFormValue(rawRepsLeft) ||
+      isMissingFormValue(rawRepsRight) ||
+      !Number.isFinite(repsLeft) ||
+      !Number.isFinite(repsRight) ||
+      repsLeft <= 0 ||
+      repsRight <= 0
+    ) {
+      return null;
+    }
+
+    return {
+      exercise,
+      weight,
+      reps: repsLeft + repsRight,
+      isUnilateral: true,
+      repsLeft,
+      repsRight,
+      notes
+    };
+  }
+
+  const rawReps = formData.get('reps');
+  const reps = Number(rawReps);
+
+  if (isMissingFormValue(rawReps) || !Number.isFinite(reps) || reps <= 0) {
     return null;
   }
 
@@ -1150,6 +1331,7 @@ function getSetDataFromForm(targetForm) {
     exercise,
     weight,
     reps,
+    isUnilateral: false,
     notes
   };
 }
@@ -1160,9 +1342,15 @@ function createSet(setData, workout) {
     exercise: setData.exercise,
     weight: setData.weight,
     reps: setData.reps,
+    isUnilateral: setData.isUnilateral === true,
     notes: setData.notes,
     createdAt: new Date().toISOString()
   };
+
+  if (setData.isUnilateral) {
+    newSet.repsLeft = setData.repsLeft;
+    newSet.repsRight = setData.repsRight;
+  }
 
   if (workout) {
     newSet.workoutId = workout.id;
@@ -1236,7 +1424,7 @@ function deleteWorkout(workoutId) {
 
   if (selectedWorkoutId === workoutId) {
     selectedWorkoutId = '';
-    workoutSetForm.reset();
+    resetSetForm(workoutSetForm);
   }
 
   isNewWorkoutOpen = false;
@@ -1385,14 +1573,47 @@ function getExerciseDailyProgress(exerciseSets) {
 }
 
 function getValidStatsSet(set) {
-  if (isMissingStatsValue(set.weight) || isMissingStatsValue(set.reps)) {
+  if (isMissingStatsValue(set.weight)) {
     return null;
   }
 
   const weight = Number(set.weight);
+
+  if (!Number.isFinite(weight) || weight < 0) {
+    return null;
+  }
+
+  if (isUnilateralSet(set)) {
+    const sideReps = getSetSideReps(set);
+
+    if (!sideReps) {
+      return null;
+    }
+
+    const reps = sideReps.left + sideReps.right;
+    // En series unilaterales usamos el mayor numero de repeticiones por lado para estimar 1RM.
+    const oneRepMaxReps = Math.max(sideReps.left, sideReps.right);
+
+    return {
+      set,
+      weight,
+      reps,
+      isUnilateral: true,
+      repsLeft: sideReps.left,
+      repsRight: sideReps.right,
+      volume: weight * reps,
+      time: getSetTime(set),
+      oneRepMax: weight * (1 + oneRepMaxReps / 30)
+    };
+  }
+
+  if (isMissingStatsValue(set.reps)) {
+    return null;
+  }
+
   const reps = Number(set.reps);
 
-  if (!Number.isFinite(weight) || !Number.isFinite(reps) || weight < 0 || reps <= 0) {
+  if (!Number.isFinite(reps) || reps <= 0) {
     return null;
   }
 
@@ -1400,10 +1621,15 @@ function getValidStatsSet(set) {
     set,
     weight,
     reps,
+    isUnilateral: false,
     volume: weight * reps,
     time: getSetTime(set),
     oneRepMax: weight * (1 + reps / 30)
   };
+}
+
+function isMissingFormValue(value) {
+  return value === null || String(value).trim() === '';
 }
 
 function isMissingStatsValue(value) {
@@ -1486,6 +1712,27 @@ function getExerciseKey(name) {
   return normalizeExerciseName(name).toLocaleLowerCase('es-ES');
 }
 
+function getCanonicalExerciseName(name) {
+  const normalizedName = normalizeExerciseName(name);
+  const exerciseKey = getExerciseKey(normalizedName);
+
+  if (!exerciseKey) {
+    return '';
+  }
+
+  return getExerciseSuggestions().find((exercise) => getExerciseKey(exercise) === exerciseKey) || normalizedName;
+}
+
+function isExerciseUsuallyUnilateral(exerciseName) {
+  const exerciseKey = getExerciseKey(exerciseName);
+
+  if (!exerciseKey) {
+    return false;
+  }
+
+  return sets.some((set) => isUnilateralSet(set) && getExerciseKey(getExerciseName(set)) === exerciseKey);
+}
+
 function normalizeExerciseName(name) {
   return String(name || '').trim().replace(/\s+/g, ' ');
 }
@@ -1518,8 +1765,42 @@ function getExercisesShortLabel(count) {
   return count === 1 ? '1 ejercicio' : `${count} ejercicios`;
 }
 
+function formatSetData(set) {
+  if (isUnilateralSet(set)) {
+    const sideReps = getSetSideReps(set);
+
+    if (sideReps) {
+      return `${formatWeight(set.weight)} x ${formatNumber(sideReps.left)} izq / ${formatNumber(sideReps.right)} der`;
+    }
+  }
+
+  return `${formatWeight(set.weight)} x ${formatNumber(set.reps)} repeticiones`;
+}
+
 function formatStatsSet(statsSet) {
+  if (statsSet.isUnilateral) {
+    return `${formatWeight(statsSet.weight)} x ${formatNumber(statsSet.repsLeft)} izq / ${formatNumber(statsSet.repsRight)} der`;
+  }
+
   return `${formatWeight(statsSet.weight)} x ${formatNumber(statsSet.reps)} repeticiones`;
+}
+
+function isUnilateralSet(set) {
+  return set && set.isUnilateral === true;
+}
+
+function getSetSideReps(set) {
+  const repsLeft = Number(set.repsLeft);
+  const repsRight = Number(set.repsRight);
+
+  if (!Number.isFinite(repsLeft) || !Number.isFinite(repsRight) || repsLeft <= 0 || repsRight <= 0) {
+    return null;
+  }
+
+  return {
+    left: repsLeft,
+    right: repsRight
+  };
 }
 
 function formatWeight(weight) {

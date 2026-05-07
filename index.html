@@ -38,9 +38,26 @@
             <input id="weight" name="weight" type="number" min="0" step="0.5" placeholder="60" required>
           </div>
 
-          <div>
+          <div data-normal-reps-field>
             <label for="reps">Repeticiones</label>
             <input id="reps" name="reps" type="number" min="1" step="1" placeholder="8" required>
+          </div>
+        </div>
+
+        <label class="checkbox-label unilateral-toggle" for="is-unilateral">
+          <input id="is-unilateral" name="isUnilateral" type="checkbox" value="true" data-unilateral-toggle>
+          <span>Serie unilateral</span>
+        </label>
+
+        <div class="field-row" data-unilateral-reps-fields hidden>
+          <div>
+            <label for="reps-left">Repeticiones lado izquierdo</label>
+            <input id="reps-left" name="repsLeft" type="number" min="1" step="1" placeholder="10">
+          </div>
+
+          <div>
+            <label for="reps-right">Repeticiones lado derecho</label>
+            <input id="reps-right" name="repsRight" type="number" min="1" step="1" placeholder="12">
           </div>
         </div>
 
@@ -130,9 +147,26 @@
                 <input id="workout-set-weight" name="weight" type="number" min="0" step="0.5" placeholder="40" required>
               </div>
 
-              <div>
+              <div data-normal-reps-field>
                 <label for="workout-set-reps">Repeticiones</label>
                 <input id="workout-set-reps" name="reps" type="number" min="1" step="1" placeholder="8" required>
+              </div>
+            </div>
+
+            <label class="checkbox-label unilateral-toggle" for="workout-set-is-unilateral">
+              <input id="workout-set-is-unilateral" name="isUnilateral" type="checkbox" value="true" data-unilateral-toggle>
+              <span>Serie unilateral</span>
+            </label>
+
+            <div class="field-row" data-unilateral-reps-fields hidden>
+              <div>
+                <label for="workout-set-reps-left">Repeticiones lado izquierdo</label>
+                <input id="workout-set-reps-left" name="repsLeft" type="number" min="1" step="1" placeholder="10">
+              </div>
+
+              <div>
+                <label for="workout-set-reps-right">Repeticiones lado derecho</label>
+                <input id="workout-set-reps-right" name="repsRight" type="number" min="1" step="1" placeholder="12">
               </div>
             </div>
 
@@ -213,9 +247,26 @@
                 <input id="exercise-set-weight" name="weight" type="number" min="0" step="0.5" placeholder="60" required>
               </div>
 
-              <div>
+              <div data-normal-reps-field>
                 <label for="exercise-set-reps">Repeticiones</label>
                 <input id="exercise-set-reps" name="reps" type="number" min="1" step="1" placeholder="8" required>
+              </div>
+            </div>
+
+            <label class="checkbox-label unilateral-toggle" for="exercise-set-is-unilateral">
+              <input id="exercise-set-is-unilateral" name="isUnilateral" type="checkbox" value="true" data-unilateral-toggle>
+              <span>Serie unilateral</span>
+            </label>
+
+            <div class="field-row" data-unilateral-reps-fields hidden>
+              <div>
+                <label for="exercise-set-reps-left">Repeticiones lado izquierdo</label>
+                <input id="exercise-set-reps-left" name="repsLeft" type="number" min="1" step="1" placeholder="10">
+              </div>
+
+              <div>
+                <label for="exercise-set-reps-right">Repeticiones lado derecho</label>
+                <input id="exercise-set-reps-right" name="repsRight" type="number" min="1" step="1" placeholder="12">
               </div>
             </div>
 
