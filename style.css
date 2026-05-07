@@ -165,6 +165,22 @@ select:focus {
   min-height: 44px;
 }
 
+.set-flags {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.set-flag {
+  min-height: 40px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.set-flag span {
+  white-space: nowrap;
+}
+
 .primary-button,
 .ghost-button,
 .danger-button,

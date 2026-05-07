@@ -506,6 +506,8 @@ function normalizeImportedSet(set) {
     weight,
     reps,
     isUnilateral,
+    usesStraps: set.usesStraps === true,
+    toFailure: set.toFailure === true,
     notes: String(set.notes || '').trim(),
     createdAt
   };
@@ -1287,6 +1289,8 @@ function getSetDataFromForm(targetForm) {
   const weight = Number(rawWeight);
   const isUnilateral = formData.get('isUnilateral') === 'true';
   const notes = String(formData.get('notes') || '').trim();
+  const usesStraps = formData.get('usesStraps') === 'true';
+  const toFailure = formData.get('toFailure') === 'true';
 
   if (!exercise || isMissingFormValue(rawWeight) || !Number.isFinite(weight) || weight < 0) {
     return null;
@@ -1316,6 +1320,8 @@ function getSetDataFromForm(targetForm) {
       isUnilateral: true,
       repsLeft,
       repsRight,
+      usesStraps,
+      toFailure,
       notes
     };
   }
@@ -1332,6 +1338,8 @@ function getSetDataFromForm(targetForm) {
     weight,
     reps,
     isUnilateral: false,
+    usesStraps,
+    toFailure,
     notes
   };
 }
@@ -1343,6 +1351,8 @@ function createSet(setData, workout) {
     weight: setData.weight,
     reps: setData.reps,
     isUnilateral: setData.isUnilateral === true,
+    usesStraps: setData.usesStraps === true,
+    toFailure: setData.toFailure === true,
     notes: setData.notes,
     createdAt: new Date().toISOString()
   };
@@ -1766,15 +1776,45 @@ function getExercisesShortLabel(count) {
 }
 
 function formatSetData(set) {
+  let setData = '';
+
   if (isUnilateralSet(set)) {
     const sideReps = getSetSideReps(set);
 
     if (sideReps) {
-      return `${formatWeight(set.weight)} x ${formatNumber(sideReps.left)} izq / ${formatNumber(sideReps.right)} der`;
+      setData = `${formatWeight(set.weight)} x ${formatNumber(sideReps.left)} izq / ${formatNumber(sideReps.right)} der`;
     }
   }
 
-  return `${formatWeight(set.weight)} x ${formatNumber(set.reps)} repeticiones`;
+  if (!setData) {
+    setData = `${formatWeight(set.weight)} x ${formatNumber(set.reps)} repeticiones`;
+  }
+
+  return formatSetDataWithFlags(setData, set);
+}
+
+function formatSetDataWithFlags(setData, set) {
+  const flags = getSetFlags(set);
+
+  if (flags.length === 0) {
+    return setData;
+  }
+
+  return `${setData} \u00b7 ${flags.join(' \u00b7 ')}`;
+}
+
+function getSetFlags(set) {
+  const flags = [];
+
+  if (set && set.usesStraps === true) {
+    flags.push('Straps');
+  }
+
+  if (set && set.toFailure === true) {
+    flags.push('Fallo');
+  }
+
+  return flags;
 }
 
 function formatStatsSet(statsSet) {
